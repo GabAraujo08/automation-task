@@ -4,8 +4,9 @@ import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from datetime import date, timedelta
 import io
+import pandas as pd
 
-# ─── LÓGICA DE DATAS (igual ao script anterior) ──────────────────────────────
+# ─── LÓGICA DE DATAS ──────────────────────────────────────────────────────────
 FERIADOS_BR = holidays.country_holidays("BR")
 
 def eh_dia_util(d):
@@ -28,13 +29,17 @@ def proxima_segunda_ate_dia_20(ref):
     d = ref
     while d.weekday() != 0:
         d += timedelta(days=1)
-    if d.day > 20:
-        mes = d.month % 12 + 1
-        ano = d.year + (1 if d.month == 12 else 0)
-        d = date(ano, mes, 1)
-        while d.weekday() != 0:
-            d += timedelta(days=1)
-    return d
+    
+    mes = d.month % 12 + 1
+    ano = d.year + (1 if d.month == 12 else 0)
+    prox_mes = date(ano, mes, 1)
+    while prox_mes.weekday() != 0:
+        prox_mes += timedelta(days=1)
+    
+    if d.day <= 20:
+        return d, prox_mes
+    else:
+        return None, prox_mes
 
 def fmt(d):
     return d.strftime("%d/%m")
@@ -42,18 +47,15 @@ def fmt(d):
 def fmt_periodo(ini, fim):
     return fmt(ini) if ini == fim else f"{fmt(ini)} a {fmt(fim)}"
 
-# ─── GERAÇÃO DO EXCEL EM MEMÓRIA ─────────────────────────────────────────────
-def gerar_excel(data_rc, data_alinhamento):
+# ─── GERAÇÃO DO EXCEL EM MEMÓRIA ──────────────────────────────────────────────
+def gerar_excel(data_rc, data_alinhamento, data_divulgacao_inicio, data_divulgacao_fim):
     etapas = []
 
     etapas.append(("Recebimento de RC", data_rc, data_rc, "—"))
     etapas.append(("Alinhamento de Perfil", data_alinhamento, data_alinhamento, 1))
+    etapas.append(("Divulgação da Vaga", data_divulgacao_inicio, data_divulgacao_fim, 7))
 
-    ini = proximo_dia_util(data_alinhamento + timedelta(days=1))
-    fim = adicionar_dias_uteis(ini, 6)
-    etapas.append(("Divulgação da Vaga", ini, fim, 7))
-
-    ini = proximo_dia_util(fim + timedelta(days=1))
+    ini = proximo_dia_util(data_divulgacao_fim + timedelta(days=1))
     etapas.append(("Triagem dos Inscritos", ini, ini, 1))
 
     ini = proximo_dia_util(ini + timedelta(days=1))
@@ -75,11 +77,17 @@ def gerar_excel(data_rc, data_alinhamento):
     fim = adicionar_dias_uteis(ini, 14)
     etapas.append(("Proposta + Processo de Admissão", ini, fim, "10 / 15"))
 
-    ini_prev = proxima_segunda_ate_dia_20(proximo_dia_util(fim + timedelta(days=1)))
-    fim_prev = adicionar_dias_uteis(ini_prev, 4)
-    etapas.append(("Previsão de Início", ini_prev, fim_prev, "—"))
+    opcao_atual, opcao_proxima = proxima_segunda_ate_dia_20(proximo_dia_util(fim + timedelta(days=1)))
+    if opcao_atual:
+        label = f"{fmt(opcao_atual)} ou {fmt(opcao_proxima)}"
+        data_inicio = opcao_atual
+    else:
+        label = fmt(opcao_proxima)
+        data_inicio = opcao_proxima
+    
+    etapas.append(("Previsão de Início", data_inicio, data_inicio, label))
 
-    # Excel
+    # ─── EXCEL ──────────────────────────────────────────────────────────────
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Cronograma"
@@ -92,8 +100,7 @@ def gerar_excel(data_rc, data_alinhamento):
     div_font= Font(bold=True, color="FFFFFF", size=10)
     center  = Alignment(horizontal="center", vertical="center")
     left    = Alignment(horizontal="left",   vertical="center")
-    borda   = Border(*[Side(style="thin")] * 0,
-                     left=Side(style="thin"), right=Side(style="thin"),
+    borda   = Border(left=Side(style="thin"), right=Side(style="thin"),
                      top=Side(style="thin"),  bottom=Side(style="thin"))
 
     for col, (h, w) in enumerate(zip(["Atividades","Período","Dias Úteis"],[35,22,12]), 1):
@@ -105,7 +112,10 @@ def gerar_excel(data_rc, data_alinhamento):
     for i, (ativ, ini, fim, du) in enumerate(etapas, 2):
         fill = div_fill if ativ == "Divulgação da Vaga" else (alt if i%2==0 else normal)
         font = div_font if ativ == "Divulgação da Vaga" else Font(size=10)
-        for col, val in enumerate([ativ, fmt_periodo(ini, fim), str(du)], 1):
+        
+        periodo = du if ativ == "Previsão de Início" else fmt_periodo(ini, fim)
+        
+        for col, val in enumerate([ativ, periodo, "" if ativ == "Previsão de Início" else str(du)], 1):
             c = ws.cell(row=i, column=col, value=val)
             c.fill, c.font, c.border = fill, font, borda
             c.alignment = left if col == 1 else center
@@ -120,25 +130,63 @@ def gerar_excel(data_rc, data_alinhamento):
 st.set_page_config(page_title="Cronograma R&S", page_icon="📋", layout="centered")
 
 st.title("📋 Gerador de Cronograma — R&S")
-st.markdown("Preencha as duas primeiras datas e baixe a planilha pronta.")
+st.markdown("Preencha as datas e baixe a planilha pronta.")
 
 col1, col2 = st.columns(2)
 with col1:
-    data_rc = st.date_input("📥 Recebimento do RC", value=date.today(), format="DD/MM/YYYY")
+    data_rc = st.date_input("📥 Recebimento do RC", value=date.today(), format="DD/MM/YYYY", key="rc")
 with col2:
-    data_ali = st.date_input("🎯 Alinhamento de Perfil", value=date.today(), format="DD/MM/YYYY")
+    data_ali = st.date_input("🎯 Alinhamento de Perfil", value=date.today(), format="DD/MM/YYYY", key="ali")
+
+st.divider()
+
+col3, col4 = st.columns(2)
+with col3:
+    data_div_ini = st.date_input("📢 Divulgação — Data Início", value=date.today(), format="DD/MM/YYYY", key="div_ini")
+with col4:
+    data_div_fim = st.date_input("📢 Divulgação — Data Fim", value=date.today(), format="DD/MM/YYYY", key="div_fim")
 
 if st.button("⚡ Gerar Cronograma", use_container_width=True, type="primary"):
-    buf, etapas = gerar_excel(data_rc, data_ali)
+    buf, etapas = gerar_excel(data_rc, data_ali, data_div_ini, data_div_fim)
 
-    # Preview na tela
-    st.success("Cronograma gerado com sucesso!")
-    st.markdown("### 📅 Preview")
+    st.success("✅ Cronograma gerado com sucesso!")
+    
+    # ─── TABELA LIMPA PARA PRINT ─────────────────────────────────────────
+    st.markdown("### 📅 Cronograma")
+    
+    dados_tabela = []
     for ativ, ini, fim, du in etapas:
-        periodo = fmt_periodo(ini, fim)
-        st.markdown(f"**{ativ}** — `{periodo}` — {du} dias úteis")
-
-    # Botão de download
+        if ativ == "Previsão de Início":
+            periodo = du  # mostra as duas opções
+            dias_util = "—"
+        else:
+            periodo = fmt_periodo(ini, fim)
+            dias_util = str(du)
+        
+        dados_tabela.append({
+            "Atividades": ativ,
+            "Período": periodo,
+            "Dias Úteis": dias_util
+        })
+    
+    df = pd.DataFrame(dados_tabela)
+    
+    # Renderiza como tabela HTML pura, sem styling do Streamlit
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Atividades": st.column_config.TextColumn(width="large"),
+            "Período": st.column_config.TextColumn(width="medium"),
+            "Dias Úteis": st.column_config.TextColumn(width="small"),
+        }
+    )
+    
+    st.markdown("*Você pode tirar um print dessa tabela*")
+    st.divider()
+    
+    # ─── DOWNLOAD DO EXCEL ───────────────────────────────────────────────
     nome = f"cronograma_{data_rc.strftime('%d%m%Y')}.xlsx"
     st.download_button(
         label="⬇️ Baixar planilha Excel",
