@@ -169,8 +169,7 @@ st.divider()
 
 # ✅ CORREÇÃO 2: Apenas data início da divulgação; fim calculado automaticamente (15 dias úteis)
 data_div_ini = st.date_input("📢 Divulgação — Data Início", value=date.today(), format="DD/MM/YYYY", key="div_ini")
-data_div_fim = adicionar_dias_uteis(data_div_ini, 15)
-st.info(f"📅 Data fim da divulgação calculada automaticamente: **{data_div_fim.strftime('%d/%m/%Y')}** (15 dias úteis)")
+data_div_fim = adicionar_dias_uteis(data_div_ini, 7)
 
 if st.button("⚡ Gerar Cronograma", use_container_width=True, type="primary"):
     buf, etapas = gerar_excel(data_rc, data_ali, data_div_ini, data_div_fim)
