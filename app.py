@@ -211,7 +211,7 @@ if st.button("⚡ Gerar Cronograma", use_container_width=True, type="primary"):
 
     st.text("Caro Gestor,")
     
-    st.text("Segue a publicação da vaga: [Link: XPTO]")
+    st.text("Segue a publicação da vaga: [Link]")
 
     st.text("Para garantirmos uma excelente experiência de boas-vindas ao novo colaborador, solicitamos a verificação prévia da estação de trabalho, equipamentos e demais itens de infraestrutura, assegurando que tudo esteja disponível no momento da admissão.")
 
