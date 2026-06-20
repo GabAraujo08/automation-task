@@ -208,6 +208,19 @@ if st.button("⚡ Gerar Cronograma", use_container_width=True, type="primary"):
     )
 
     st.markdown("*Você pode tirar um print dessa tabela*")
+
+    st.text("Caro Gestor,")
+    
+    st.text("Segue a publicação da vaga: [Link: XPTO]")
+
+    st.text("Para garantirmos uma excelente experiência de boas-vindas ao novo colaborador, solicitamos a verificação prévia da estação de trabalho, equipamentos e demais itens de infraestrutura, assegurando que tudo esteja disponível no momento da admissão.")
+
+    st.text("Para o seu planejamento, apresentamos abaixo o cronograma do processo com a previsão da data de início.")
+
+    st.text("Ficamos à disposição e, caso surja algum imprevisto, nos avise para ajustarmos o cronograma de admissão.")
+
+    st.text("Atenciosamente,")
+    
     st.divider()
 
     # ─── DOWNLOAD DO EXCEL ───────────────────────────────────────────────
