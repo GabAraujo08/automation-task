@@ -207,7 +207,7 @@ if st.button("⚡ Gerar Cronograma", use_container_width=True, type="primary"):
         }
     )
 
-    st.markdown("*Você pode tirar um print dessa tabela*")
+    #st.markdown("*Você pode tirar um print dessa tabela*")
 
     st.text("Caro Gestor,")
     
